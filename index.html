@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S-3/26 · Predictor de Voto Multifuente</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a18;min-height:100vh;}
+.container{max-width:1140px;margin:0 auto;padding:1.5rem;}
+h1{font-size:20px;font-weight:600;margin-bottom:3px;}
+.subtitle{font-size:12px;color:#5f5e5a;margin-bottom:1.25rem;}
+.tabs{display:flex;gap:4px;margin-bottom:1.25rem;border-bottom:1px solid rgba(0,0,0,0.1);padding-bottom:0;}
+.tab{font-size:13px;padding:7px 16px;border:none;background:none;color:#5f5e5a;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:4px 4px 0 0;}
+.tab:hover{color:#1a1a18;background:#e8e7e2;}
+.tab.active{color:#1a1a18;font-weight:600;border-bottom:2px solid #1a1a18;}
+.panel{display:none;}.panel.active{display:block;}
+.section-label{font-size:11px;color:#5f5e5a;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin:1.25rem 0 .6rem;}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:1.25rem;}
+.metric-card{background:#e8e7e2;border-radius:8px;padding:.75rem 1rem;}
+.metric-label{font-size:10px;color:#5f5e5a;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;}
+.metric-value{font-size:20px;font-weight:600;}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem;}
+@media(max-width:640px){.chart-row{grid-template-columns:1fr;}}
+.card{background:#fff;border:0.5px solid rgba(0,0,0,0.12);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem;}
+.card-title{font-size:13px;font-weight:600;margin-bottom:.75rem;display:flex;align-items:center;gap:8px;}
+.badge-fuente{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;}
+.bf-redes{background:#EEEDFE;color:#3C3489;}
+.bf-noticias{background:#E1F5EE;color:#085041;}
+.bf-oficial{background:#E6F1FB;color:#0C447C;}
+.bf-encuesta{background:#FAEEDA;color:#633806;}
+.bf-manual{background:#f1efe8;color:#444441;}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:1rem;}
+input,select,textarea{font-family:inherit;font-size:13px;padding:6px 10px;border:.5px solid rgba(0,0,0,0.22);border-radius:8px;background:#fff;color:#1a1a18;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:rgba(0,0,0,.5);}
+input[type=text],input[type=password]{height:34px;}
+select{height:34px;}
+textarea{width:100%;min-height:80px;resize:vertical;line-height:1.5;}
+button{font-family:inherit;font-size:13px;padding:6px 14px;border:.5px solid rgba(0,0,0,.22);border-radius:8px;background:transparent;color:#1a1a18;cursor:pointer;height:34px;white-space:nowrap;}
+button:hover{background:#e8e7e2;}
+button.primary{background:#1a1a18;color:#fff;border-color:#1a1a18;}
+button.primary:hover{background:#444;}
+button:active{transform:scale(.98);}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;color:#5f5e5a;font-weight:600;border-bottom:.5px solid rgba(0,0,0,.1);padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+td{padding:7px 8px;border-bottom:.5px solid rgba(0,0,0,.07);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#f5f5f3;cursor:pointer;}
+tr.selected td{background:#e6f1fb;}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;}
+.badge-si{background:#eaf3de;color:#27500a;}
+.badge-no{background:#fcebeb;color:#791f1f;}
+.badge-inc{background:#faeeda;color:#633806;}
+.prob-bar-wrap{display:flex;align-items:center;gap:6px;min-width:100px;}
+.prob-bar{height:5px;border-radius:3px;flex:1;background:#e8e7e2;overflow:hidden;}
+.prob-bar-fill{height:100%;border-radius:3px;}
+.prob-val{font-size:11px;font-weight:600;min-width:28px;text-align:right;}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+.pag{display:flex;gap:8px;margin-top:.75rem;align-items:center;font-size:12px;color:#5f5e5a;flex-wrap:wrap;}
+.ai-result{font-size:13px;line-height:1.75;color:#1a1a18;min-height:60px;white-space:pre-wrap;padding:.5rem 0;}
+.ai-loading{color:#5f5e5a;font-style:italic;}
+.disclaimer{font-size:11px;color:#888780;margin-top:1rem;border-top:.5px solid rgba(0,0,0,.08);padding-top:.75rem;line-height:1.5;}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:11px;color:#5f5e5a;}
+.lsq{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:middle;}
+.fuentes-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;}
+@media(max-width:640px){.fuentes-grid{grid-template-columns:1fr;}}
+.fuente-card{background:#fff;border:.5px solid rgba(0,0,0,.12);border-radius:12px;padding:1rem;}
+.fuente-header{display:flex;align-items:center;gap:8px;margin-bottom:.6rem;}
+.fuente-title{font-size:13px;font-weight:600;}
+.fuente-desc{font-size:12px;color:#5f5e5a;margin-bottom:.6rem;line-height:1.5;}
+.tag-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:.5rem;}
+.tag{font-size:11px;padding:2px 8px;border-radius:10px;background:#f1efe8;color:#444441;}
+.signal-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:.5px solid rgba(0,0,0,.06);font-size:12px;}
+.signal-row:last-child{border-bottom:none;}
+.signal-label{color:#5f5e5a;flex:1;}
+.signal-val{font-weight:600;}
+.signal-pos{color:#27500a;}
+.signal-neg{color:#791f1f;}
+.signal-neu{color:#633806;}
+.manual-list{margin-top:.75rem;}
+.manual-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:.5px solid rgba(0,0,0,.06);font-size:12px;}
+.manual-item:last-child{border-bottom:none;}
+.manual-item-content{flex:1;line-height:1.5;}
+.manual-item-source{font-size:10px;color:#5f5e5a;margin-top:2px;}
+.del-btn{font-size:11px;padding:2px 6px;border-radius:4px;color:#791f1f;border-color:rgba(231,75,74,.3);}
+.del-btn:hover{background:#fcebeb;}
+.progress-bar-wrap{margin:.5rem 0;}
+.progress-label{font-size:11px;color:#5f5e5a;margin-bottom:3px;display:flex;justify-content:space-between;}
+.progress-bar{height:8px;border-radius:4px;background:#e8e7e2;overflow:hidden;}
+.progress-fill{height:100%;border-radius:4px;}
+.peso-row{display:flex;align-items:center;gap:10px;margin-bottom:.5rem;font-size:13px;}
+.peso-row label{width:160px;color:#5f5e5a;}
+.peso-row input[type=range]{flex:1;}
+.peso-val{min-width:32px;text-align:right;font-weight:600;}
+.api-box{background:#faeeda;border:.5px solid #ef9f27;border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;}
+.api-box label{font-size:12px;font-weight:600;display:block;margin-bottom:5px;color:#633806;}
+.api-box input{width:100%;max-width:400px;}
+.api-box small{display:block;margin-top:4px;font-size:11px;color:#854f0b;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>S-3/26 · Predictor de voto — Multifuente</h1>
+  <p class="subtitle">Biocombustibles · Senado y Diputados · Fuentes: histórico · redes · noticias · declaraciones · encuestas</p>
+
+  <div class="api-box">
+    <label>API Key de Anthropic (para análisis con IA)</label>
+    <input type="password" id="apiKey" placeholder="sk-ant-...">
+    <small>Necesaria para búsqueda web con IA y análisis de fuentes. Obtené la tuya en <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></small>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('resumen')">Resumen</button>
+    <button class="tab" onclick="showTab('legisladores')">Legisladores</button>
+    <button class="tab" onclick="showTab('fuentes')">Fuentes de datos</button>
+    <button class="tab" onclick="showTab('pesos')">Pesos del modelo</button>
+    <button class="tab" onclick="showTab('analisis')">Análisis con IA</button>
+  </div>
+
+  <!-- TAB RESUMEN -->
+  <div id="tab-resumen" class="panel active">
+    <div class="section-label">Proyección total del Congreso</div>
+    <div class="metric-grid">
+      <div class="metric-card"><div class="metric-label">A favor (est.)</div><div class="metric-value" id="tot-si" style="color:#27500a">—</div></div>
+      <div class="metric-card"><div class="metric-label">En contra (est.)</div><div class="metric-value" id="tot-no" style="color:#791f1f">—</div></div>
+      <div class="metric-card"><div class="metric-label">Inciertos</div><div class="metric-value" id="tot-inc" style="color:#633806">—</div></div>
+      <div class="metric-card"><div class="metric-label">Senado — mayoría</div><div class="metric-value" style="color:#185fa5">37 / 72</div></div>
+      <div class="metric-card"><div class="metric-label">Diputados — mayoría</div><div class="metric-value" style="color:#185fa5">129 / 257</div></div>
+    </div>
+
+    <div class="chart-row">
+      <div class="card">
+        <div class="card-title">Senado por bloque</div>
+        <div class="legend">
+          <span><span class="lsq" style="background:#639922"></span>A favor</span>
+          <span><span class="lsq" style="background:#e24b4a"></span>En contra</span>
+          <span><span class="lsq" style="background:#ef9f27"></span>Incierto</span>
+        </div>
+        <div style="position:relative;height:180px;"><canvas id="cSen" role="img" aria-label="Senado por bloque">Senado por bloque.</canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Diputados por bloque</div>
+        <div class="legend">
+          <span><span class="lsq" style="background:#639922"></span>A favor</span>
+          <span><span class="lsq" style="background:#e24b4a"></span>En contra</span>
+          <span><span class="lsq" style="background:#ef9f27"></span>Incierto</span>
+        </div>
+        <div style="position:relative;height:180px;"><canvas id="cDip" role="img" aria-label="Diputados por bloque">Diputados por bloque.</canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Contribución de cada fuente al modelo</div>
+      <div id="contrib-fuentes"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Señales recientes cargadas</div>
+      <div id="senales-resumen" style="font-size:13px;color:#5f5e5a;">No hay señales manuales cargadas aún. Agregá datos en la pestaña "Fuentes de datos".</div>
+    </div>
+  </div>
+
+  <!-- TAB LEGISLADORES -->
+  <div id="tab-legisladores" class="panel">
+    <div class="controls">
+      <input type="text" id="buscar" placeholder="Apellido o provincia..." oninput="filtrar()" style="width:170px;">
+      <select id="filCam" onchange="filtrar()">
+        <option value="">Ambas cámaras</option>
+        <option value="S">Senado</option>
+        <option value="D">Diputados</option>
+      </select>
+      <select id="filBloq" onchange="filtrar()">
+        <option value="">Todos los bloques</option>
+        <option value="LLA">La Libertad Avanza</option>
+        <option value="UxP">Unión por la Patria</option>
+        <option value="PRO">PRO</option>
+        <option value="UCR">UCR</option>
+        <option value="PU">Provincias Unidas</option>
+        <option value="IF">Innovación Federal</option>
+        <option value="OTR">Otros</option>
+      </select>
+      <select id="filPos" onchange="filtrar()">
+        <option value="">Todas las posiciones</option>
+        <option value="SI">A favor</option>
+        <option value="NO">En contra</option>
+        <option value="INC">Inciertos</option>
+      </select>
+      <select id="filOrden" onchange="filtrar()">
+        <option value="prob-desc">Mayor probabilidad</option>
+        <option value="prob-asc">Menor probabilidad</option>
+        <option value="az">A–Z</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Legislador/a</th><th>Cámara</th><th>Provincia</th><th>Bloque</th>
+          <th>Prob. a favor</th><th>Señales</th><th>Posición</th><th>Acción</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pag" id="pag"></div>
+  </div>
+
+  <!-- TAB FUENTES -->
+  <div id="tab-fuentes" class="panel">
+    <div class="fuentes-grid">
+      <div class="fuente-card">
+        <div class="fuente-header">
+          <span class="badge-fuente bf-redes">Redes sociales</span>
+          <span class="fuente-title">Twitter/X · Instagram</span>
+        </div>
+        <div class="fuente-desc">Pegá el texto de un tweet, post o declaración de un legislador sobre biocombustibles o energía.</div>
+        <select id="red-leg" style="width:100%;margin-bottom:6px;"></select>
+        <select id="red-tipo" style="width:100%;margin-bottom:6px;">
+          <option value="twitter">Twitter/X</option>
+          <option value="instagram">Instagram</option>
+          <option value="facebook">Facebook</option>
+        </select>
+        <textarea id="red-texto" placeholder="Pegá el texto del post aquí..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button onclick="agregarSenal('redes')" class="primary">Agregar señal</button>
+          <button onclick="buscarConIA('redes')">Buscar con IA ↗</button>
+        </div>
+      </div>
+
+      <div class="fuente-card">
+        <div class="fuente-header">
+          <span class="badge-fuente bf-noticias">Noticias</span>
+          <span class="fuente-title">Medios de comunicación</span>
+        </div>
+        <div class="fuente-desc">Pegá el título y texto de una nota periodística, o el link de un artículo.</div>
+        <select id="not-leg" style="width:100%;margin-bottom:6px;"></select>
+        <input type="text" id="not-link" placeholder="Link del artículo (opcional)" style="width:100%;margin-bottom:6px;">
+        <textarea id="not-texto" placeholder="Pegá el texto o resumen de la nota..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button onclick="agregarSenal('noticias')" class="primary">Agregar señal</button>
+          <button onclick="buscarConIA('noticias')">Buscar con IA ↗</button>
+        </div>
+      </div>
+
+      <div class="fuente-card">
+        <div class="fuente-header">
+          <span class="badge-fuente bf-oficial">Declaraciones oficiales</span>
+          <span class="fuente-title">Discursos · Comisiones</span>
+        </div>
+        <div class="fuente-desc">Agregá declaraciones de comisiones, versiones taquigráficas o discursos en sesión.</div>
+        <select id="dec-leg" style="width:100%;margin-bottom:6px;"></select>
+        <input type="text" id="dec-fecha" placeholder="Fecha (ej: 15/03/2026)" style="width:100%;margin-bottom:6px;">
+        <textarea id="dec-texto" placeholder="Pegá el fragmento del discurso o declaración..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button onclick="agregarSenal('oficial')" class="primary">Agregar señal</button>
+          <button onclick="buscarConIA('oficial')">Buscar con IA ↗</button>
+        </div>
+      </div>
+
+      <div class="fuente-card">
+        <div class="fuente-header">
+          <span class="badge-fuente bf-encuesta">Encuestas</span>
+          <span class="fuente-title">Sondeos · Opinión pública</span>
+        </div>
+        <div class="fuente-desc">Cargá datos de encuestas sobre biocombustibles, energía o posicionamiento político por provincia.</div>
+        <select id="enc-provincia" style="width:100%;margin-bottom:6px;">
+          <option value="">Aplica a todos</option>
+          <option>BUENOS AIRES</option><option>CÓRDOBA</option><option>SANTA FE</option>
+          <option>TUCUMÁN</option><option>SALTA</option><option>CORRIENTES</option>
+          <option>ENTRE RÍOS</option><option>MENDOZA</option><option>MISIONES</option>
+          <option>CHACO</option><option>JUJUY</option><option>SANTIAGO DEL ESTERO</option>
+        </select>
+        <input type="text" id="enc-fuente" placeholder="Fuente de la encuesta" style="width:100%;margin-bottom:6px;">
+        <textarea id="enc-texto" placeholder="Pegá los resultados o conclusiones clave..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button onclick="agregarSenal('encuesta')" class="primary">Agregar señal</button>
+          <button onclick="buscarConIA('encuesta')">Buscar con IA ↗</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Señales cargadas <span id="count-senales" style="font-size:12px;font-weight:400;color:#5f5e5a;margin-left:8px;">0 señales</span></div>
+      <div id="lista-senales"><p style="font-size:13px;color:#5f5e5a;">No hay señales cargadas todavía.</p></div>
+      <div style="margin-top:1rem;display:flex;gap:8px;">
+        <button onclick="recalcular()" class="primary">Recalcular probabilidades ↗</button>
+        <button onclick="limpiarSenales()">Limpiar todas</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB PESOS -->
+  <div id="tab-pesos" class="panel">
+    <div class="card">
+      <div class="card-title">Pesos del modelo de predicción</div>
+      <p style="font-size:13px;color:#5f5e5a;margin-bottom:1rem;">Ajustá cuánto influye cada fuente en el cálculo de probabilidad. Los valores se normalizan automáticamente.</p>
+      <div class="peso-row"><label>Alineamiento histórico (bloque)</label><input type="range" id="p-historico" min="0" max="100" value="40" step="1" oninput="actualizarPesos()"><span class="peso-val" id="v-historico">40%</span></div>
+      <div class="peso-row"><label>Provincia / sector</label><input type="range" id="p-provincia" min="0" max="100" value="20" step="1" oninput="actualizarPesos()"><span class="peso-val" id="v-provincia">20%</span></div>
+      <div class="peso-row"><label>Redes sociales</label><input type="range" id="p-redes" min="0" max="100" value="10" step="1" oninput="actualizarPesos()"><span class="peso-val" id="v-redes">10%</span></div>
+      <div class="peso-row"><label>Noticias</label><input type="range" id="p-noticias" min="0" max="100" value="15" step="1" oninput="actualizarPesos()"><span class="peso-val" id="v-noticias">15%</span></div>
+      <div class="peso-row"><label>Declaraciones oficiales</label><input type="range" id="p-oficial" min="0" max="100" value="10" step="1" oninput="actualizarPesos()"><span class="peso-val" id="v-oficial">10%</span></div>
+      <div class="peso-row"><label>Encuestas</label><input type="range" id="p-encuesta" min="0" max="100" value="5" step="1" oninput="actualizarPesos()"><span class="peso-val" id="v-encuesta">5%</span></div>
+      <div style="margin-top:1rem;">
+        <div class="progress-label"><span>Distribución actual</span><span id="total-pesos">100%</span></div>
+        <div class="progress-bar" style="height:16px;">
+          <div id="barra-pesos" style="height:100%;border-radius:4px;background:linear-gradient(90deg,#185fa5 0%,#1d9e75 40%,#7f77dd 60%,#e24b4a 75%,#ef9f27 88%,#888780 100%);"></div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;">
+        <button onclick="recalcular()" class="primary">Aplicar y recalcular ↗</button>
+        <button onclick="resetPesos()" style="margin-left:8px;">Restablecer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB ANALISIS -->
+  <div id="tab-analisis" class="panel">
+    <div class="card">
+      <div class="card-title">Búsqueda web con IA</div>
+      <p style="font-size:13px;color:#5f5e5a;margin-bottom:.75rem;">La IA busca declaraciones recientes, noticias y posicionamiento del legislador seleccionado en relación al proyecto.</p>
+      <div class="controls">
+        <select id="ai-leg" style="width:260px;"></select>
+        <button onclick="buscarWebIA()" class="primary">Buscar en la web ↗</button>
+        <button onclick="analizarTodos()">Analizar top 10 inciertos ↗</button>
+      </div>
+      <div id="ai-web-result" class="ai-result"><span style="color:#5f5e5a;">Seleccioná un legislador y hacé clic en "Buscar en la web".</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Consulta libre</div>
+      <div class="controls">
+        <input type="text" id="ai-pregunta" placeholder="Ej: ¿Qué senadores son clave para llegar a 37 votos?" style="flex:1;min-width:200px;width:auto;">
+        <button onclick="consultarLibre()" class="primary">Consultar ↗</button>
+      </div>
+      <div id="ai-libre-result" class="ai-result"><span style="color:#5f5e5a;">Escribí una pregunta sobre el proyecto o los legisladores.</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Análisis de señal manual</div>
+      <p style="font-size:13px;color:#5f5e5a;margin-bottom:.75rem;">Pegá cualquier texto (tweet, nota, discurso) y la IA lo analiza e identifica si es una señal positiva o negativa para el proyecto.</p>
+      <textarea id="ai-texto-analizar" placeholder="Pegá acá el texto a analizar..." style="margin-bottom:8px;"></textarea>
+      <div style="display:flex;gap:8px;">
+        <select id="ai-leg-analizar" style="width:220px;"></select>
+        <button onclick="analizarTexto()" class="primary">Analizar texto ↗</button>
+      </div>
+      <div id="ai-texto-result" class="ai-result" style="margin-top:.75rem;"><span style="color:#5f5e5a;">El resultado aparecerá acá.</span></div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    Modelo predictivo basado en: alineamiento histórico de bloque (comovoto.dev.ar), peso agroindustrial provincial, y señales manuales o IA sobre redes, noticias, declaraciones y encuestas. Las probabilidades son estimativas y deben interpretarse como orientación, no como certeza. Fuentes oficiales: senado.gob.ar · diputados.gov.ar
+  </div>
+</div>
+
+<script>
+const PROV_BIOCOM=['CÓRDOBA','SANTA FE','TUCUMÁN','SALTA','JUJUY','CORRIENTES','MISIONES','ENTRE RÍOS','SANTIAGO DEL ESTERO','BUENOS AIRES','LA PAMPA','CHACO'];
+const BLOQ_MAP={'LA LIBERTAD AVANZA':'LLA','UNIÓN POR LA PATRIA':'UxP','JUSTICIALISTA':'UxP','CONVICCIÓN FEDERAL':'UxP','PROVINCIAS UNIDAS':'PU','PRO':'PRO','FRENTE PRO':'PRO','UCR - UNIÓN CÍVICA RADICAL':'UCR','INNOVACIÓN FEDERAL':'IF','FRENTE RENOVADOR DE LA CONCORDIA SOCIAL':'IF','ENCUENTRO FEDERAL':'EF','INDEPENDENCIA':'OTR','MOVERE POR SANTA CRUZ':'OTR','LA NEUQUINIDAD':'OTR','ELIJO CATAMARCA':'OTR','ADELANTE BUENOS AIRES':'UCR','COALICION CIVICA':'UCR','PRODUCCION Y TRABAJO':'OTR','PTS-FRENTE DE IZQUIERDA Y DE TRABAJADORES UNIDAD':'IZQ','PARTIDO OBRERO EN EL FTE DE IZQUIERDA Y DE TRABAJADORES-UNIDAD':'IZQ','MID - MOVIMIENTO DE INTEGRACIÓN Y DESARROLLO':'OTR','DEFENDAMOS CÓRDOBA':'OTR','COHERENCIA':'OTR','POR SANTA CRUZ':'OTR','PRIMERO SAN LUIS':'OTR'};
+const BLOQ_COLOR={LLA:'#7f77dd',UxP:'#e24b4a',PRO:'#ef9f27',UCR:'#378add',PU:'#1d9e75',IF:'#888780',EF:'#d85a30',IZQ:'#d4537e',OTR:'#b4b2a9'};
+const BLOQ_LABEL={LLA:'La Libertad Avanza',UxP:'Unión por la Patria',PRO:'PRO',UCR:'UCR',PU:'Provincias Unidas',IF:'Innovación Federal',EF:'Encuentro Federal',IZQ:'Izquierda',OTR:'Otros'};
+
+function hashStr(s){let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h;}
+function calcBase(bloq,prov){
+  const bases={LLA:.80,PRO:.71,UCR:.60,EF:.55,PU:.52,IF:.50,OTR:.50,UxP:.35,IZQ:.18};
+  let p=bases[bloq]?.50;
+  const PU=prov.toUpperCase();
+  if(PROV_BIOCOM.includes(PU))p=Math.min(p+.07,.95);
+  if(['CÓRDOBA','SANTA FE'].includes(PU))p=Math.min(p+.05,.95);
+  if(PU==='CORRIENTES')p=Math.min(p+.10,.95);
+  const h=hashStr(prov+bloq);
+  p+=((h%100)/100-.5)*.07;
+  return Math.max(.08,Math.min(.95,p));
+}
+
+const senadoresRaw=[
+  ['ABAD','MAXIMILIANO','BUENOS AIRES','UCR - UNIÓN CÍVICA RADICAL'],['ABDALA','BARTOLOMÉ','SAN LUIS','LA LIBERTAD AVANZA'],['ALMEIDA','ROMINA','ENTRE RÍOS','LA LIBERTAD AVANZA'],['ALVAREZ RIVERO','CARMEN','CÓRDOBA','LA LIBERTAD AVANZA'],['ANDRADA','GUILLERMO','CATAMARCA','CONVICCIÓN FEDERAL'],['ARCE','CARLOS','MISIONES','FRENTE RENOVADOR DE LA CONCORDIA SOCIAL'],['ARRASCAETA','IVANNA','SAN LUIS','LA LIBERTAD AVANZA'],['ATAUCHE','EZEQUIEL','JUJUY','LA LIBERTAD AVANZA'],['AVILA','BEATRIZ','TUCUMÁN','INDEPENDENCIA'],['BAHL','ADÁN','ENTRE RÍOS','JUSTICIALISTA'],['BEDIA','VILMA','JUJUY','LA LIBERTAD AVANZA'],['BENEGAS LYNCH','JOAQUÍN','ENTRE RÍOS','LA LIBERTAD AVANZA'],['BENSUSÁN','DANIEL','LA PAMPA','JUSTICIALISTA'],['BULLRICH','PATRICIA','CIUDAD AUTÓNOMA DE BUENOS AIRES','LA LIBERTAD AVANZA'],['CAPITANICH','JORGE','CHACO','JUSTICIALISTA'],['CARAMBIA','JOSÉ','SANTA CRUZ','MOVERE POR SANTA CRUZ'],['CERVI','MARIO','NEUQUÉN','LA LIBERTAD AVANZA'],['CORPACCI','LUCÍA','CATAMARCA','JUSTICIALISTA'],['CORROZA','JULIETA','NEUQUÉN','LA NEUQUINIDAD'],['COTO','AGUSTÍN','TIERRA DEL FUEGO','LA LIBERTAD AVANZA'],['CRISTINA','ANDREA','CHUBUT','FRENTE PRO'],['DE PEDRO','EDUARDO','BUENOS AIRES','JUSTICIALISTA'],['DI TULLIO','JULIANA','BUENOS AIRES','JUSTICIALISTA'],['ESPÍNOLA','CARLOS','CORRIENTES','PROVINCIAS UNIDAS'],['FAMA','FLAVIO','CATAMARCA','UCR - UNIÓN CÍVICA RADICAL'],['FERNÁNDEZ SAGASTI','ANABEL','MENDOZA','JUSTICIALISTA'],['FULLONE','ENZO','RÍO NEGRO','LA LIBERTAD AVANZA'],['GADANO','NATALIA','SANTA CRUZ','MOVERE POR SANTA CRUZ'],['GALARETTO','EDUARDO','SANTA FE','UCR - UNIÓN CÍVICA RADICAL'],['GIMÉNEZ NAVARRO','CELESTE','SAN JUAN','JUSTICIALISTA'],['GIMÉNEZ','SILVIA','MENDOZA','LA LIBERTAD AVANZA'],['GOERLING LARA','MARTÍN','TIERRA DEL FUEGO','FRENTE PRO'],['KRONEBERGER','JAVIER','LA PAMPA','LA LIBERTAD AVANZA'],['KUEIDER','EDGARDO','ENTRE RÍOS','JUSTICIALISTA'],['LOSADA','MARTÍN','BUENOS AIRES','UCR - UNIÓN CÍVICA RADICAL'],['LOUSTEAU','MARTÍN','CIUDAD AUTÓNOMA DE BUENOS AIRES','UCR - UNIÓN CÍVICA RADICAL'],['MAZA','MARÍA','LA RIOJA','JUSTICIALISTA'],['MAYANS','JOSÉ','FORMOSA','JUSTICIALISTA'],['NEDER','JOSÉ','SANTIAGO DEL ESTERO','JUSTICIALISTA'],['PARRILLI','OSCAR','NEUQUÉN','JUSTICIALISTA'],['QUINTAR','JORGE','SAN JUAN','INDEPENDENCIA'],['RODAS','EDITH','JUJUY','INDEPENDENCIA'],['ROMERO','JUAN CARLOS','SALTA','INDEPENDENCIA'],['ROZAS','VÍCTOR','CHACO','INDEPENDENCIA'],['SALINO','FERNANDO','NEUQUÉN','CONVICCIÓN FEDERAL'],['SALZMANN','BRUNO','MISIONES','LA LIBERTAD AVANZA'],['SAPAG','SILVIA','NEUQUÉN','CONVICCIÓN FEDERAL'],['SORIA','MARTÍN','RÍO NEGRO','JUSTICIALISTA'],['TORELLO','PEDRO','BUENOS AIRES','LA LIBERTAD AVANZA'],['VIGO','ALEJANDRA','CÓRDOBA','PROVINCIAS UNIDAS'],['VISCHI','EDUARDO','CORRIENTES','UCR - UNIÓN CÍVICA RADICAL'],['WERETILNECK','ALBERTO','RÍO NEGRO','INDEPENDENCIA'],['ZIMMERMANN','CARLOS','CHACO','INDEPENDENCIA'],
+];
+const diputadosRaw=[
+  ['AGÜERO','GUILLERMO','CHACO','UCR - UNIÓN CÍVICA RADICAL'],['AGUIRRE','HILDA','LA RIOJA','UNIÓN POR LA PATRIA'],['AJMECHET','SABRINA','CIUDAD DE BUENOS AIRES','LA LIBERTAD AVANZA'],['ALÍ','ERNESTO','SAN LUIS','UNIÓN POR LA PATRIA'],['ALMENA','CARLOS','SAN LUIS','LA LIBERTAD AVANZA'],['ALMIRÓN','LISANDRO','CORRIENTES','LA LIBERTAD AVANZA'],['ÁLVAREZ','CLAUDIO','SAN LUIS','INNOVACIÓN FEDERAL'],['ANDINO','CRISTIAN','SAN JUAN','UNIÓN POR LA PATRIA'],['ANDRADE','JAVIER','CIUDAD DE BUENOS AIRES','UNIÓN POR LA PATRIA'],['ANDREUSSI','BARBARA','JUJUY','LA LIBERTAD AVANZA'],['ANSALONI','PABLO','BUENOS AIRES','LA LIBERTAD AVANZA'],['ARABIA','DAMIÁN','CIUDAD DE BUENOS AIRES','LA LIBERTAD AVANZA'],['ARAUJO HERNÁNDEZ','JORGE','TIERRA DEL FUEGO','UNIÓN POR LA PATRIA'],['ARDOHAIN','MARTÍN','LA PAMPA','PRO'],['ARRIETA','LOURDES','MENDOZA','PROVINCIAS UNIDAS'],['ARRÚA','ALBERTO','MISIONES','INNOVACIÓN FEDERAL'],['AVEIRO','MARTÍN','MENDOZA','UNIÓN POR LA PATRIA'],['AVICO','BELÉN','CÓRDOBA','LA LIBERTAD AVANZA'],['AVILA','FERNANDA','CATAMARCA','ELIJO CATAMARCA'],['AVILA','JORGE','CHUBUT','PROVINCIAS UNIDAS'],['BANFI','KARINA','BUENOS AIRES','ADELANTE BUENOS AIRES'],['BARBUR','MARCELO','SANTIAGO DEL ESTERO','UNIÓN POR LA PATRIA'],['BASTERRA','LUIS','FORMOSA','UNIÓN POR LA PATRIA'],['BASUALDO','CAROLINA','CÓRDOBA','PROVINCIAS UNIDAS'],['BASUALDO','ATILIO','FORMOSA','LA LIBERTAD AVANZA'],['BECERRA','MÓNICA','SAN LUIS','LA LIBERTAD AVANZA'],['BENEDIT','BELTRÁN','ENTRE RÍOS','LA LIBERTAD AVANZA'],['BENEGAS LYNCH','BERTIE','BUENOS AIRES','LA LIBERTAD AVANZA'],['BIANCHETTI','EMMANUEL','MISIONES','PRO'],['BIELLA','BERNARDO','SALTA','INNOVACIÓN FEDERAL'],['BONACCI','ROCÍO','SANTA FE','LA LIBERTAD AVANZA'],['BONGIOVANNI','ALEJANDRO','SANTA FE','LA LIBERTAD AVANZA'],['BORDET','GUSTAVO','ENTRE RÍOS','UNIÓN POR LA PATRIA'],['BORGATTA','ALEJANDRINA','SANTA FE','UNIÓN POR LA PATRIA'],['BORNORONI','GABRIEL','CÓRDOBA','LA LIBERTAD AVANZA'],['BREGMAN','MYRIAM','CIUDAD DE BUENOS AIRES','PTS-FRENTE DE IZQUIERDA Y DE TRABAJADORES UNIDAD'],['BRIZUELA','ADRIÁN','CATAMARCA','LA LIBERTAD AVANZA'],['BRÜGGE','JUAN','CÓRDOBA','PROVINCIAS UNIDAS'],['BRUNO','ELIANA','SALTA','LA LIBERTAD AVANZA'],['CAFIERO','SANTIAGO','BUENOS AIRES','UNIÓN POR LA PATRIA'],['CAMPERO','MARIANO','TUCUMÁN','LA LIBERTAD AVANZA'],['CAMPITELLI','CELIA','SANTIAGO DEL ESTERO','UNIÓN POR LA PATRIA'],['CAMPO','JULIETA','CHACO','UNIÓN POR LA PATRIA'],['CÁMPORA','LUCÍA','CIUDAD DE BUENOS AIRES','UNIÓN POR LA PATRIA'],['CAPOZZI','SERGIO','RÍO NEGRO','PROVINCIAS UNIDAS'],['CARIGNANO','FLORENCIA','SANTA FE','UNIÓN POR LA PATRIA'],['CARRANCIO','ALEJANDRO','BUENOS AIRES','LA LIBERTAD AVANZA'],['CASAS','SERGIO','LA RIOJA','UNIÓN POR LA PATRIA'],['CASTAGNETO','CARLOS','BUENOS AIRES','UNIÓN POR LA PATRIA'],['CASTELNUOVO','GISELLE','BUENOS AIRES','LA LIBERTAD AVANZA'],['CHICA','JORGE','SAN JUAN','UNIÓN POR LA PATRIA'],['CHICONI','ABEL','SAN JUAN','LA LIBERTAD AVANZA'],['CIPOLINI','GERARDO','CHACO','UCR - UNIÓN CÍVICA RADICAL'],['CISNEROS','CARLOS','TUCUMÁN','UNIÓN POR LA PATRIA'],['COLETTA','MARIELA','CIUDAD DE BUENOS AIRES','PROVINCIAS UNIDAS'],['CORREA LLANO','FACUNDO','MENDOZA','LA LIBERTAD AVANZA'],['DAIVES','RICARDO','SANTIAGO DEL ESTERO','UNIÓN POR LA PATRIA'],['DE ANDREIS','FERNANDO','CIUDAD DE BUENOS AIRES','PRO'],['DE LA ROSA','MARÍA','FORMOSA','UNIÓN POR LA PATRIA'],['DE LA SOTA','NATALIA','CÓRDOBA','DEFENDAMOS CÓRDOBA'],['DE SENSI','MARÍA','BUENOS AIRES','PRO'],['DEL CAÑO','NICOLÁS','BUENOS AIRES','PTS-FRENTE DE IZQUIERDA Y DE TRABAJADORES UNIDAD'],['DEL PLÁ','ROMINA','BUENOS AIRES','PARTIDO OBRERO EN EL FTE DE IZQUIERDA Y DE TRABAJADORES-UNIDAD'],['DÍAZ','FERNANDA','BUENOS AIRES','UNIÓN POR LA PATRIA'],['DIEZ','ROMINA','SANTA FE','LA LIBERTAD AVANZA'],['DOLCE','SERGIO','CHACO','UNIÓN POR LA PATRIA'],['EMMA','NICOLÁS','CIUDAD DE BUENOS AIRES','LA LIBERTAD AVANZA'],['ESTÉVEZ','GABRIELA','CÓRDOBA','UNIÓN POR LA PATRIA'],['FALCONE','EDUARDO','BUENOS AIRES','MID - MOVIMIENTO DE INTEGRACIÓN Y DESARROLLO'],['FARGOSI','ALEJANDRO','CIUDAD DE BUENOS AIRES','LA LIBERTAD AVANZA'],['FARÍAS','PABLO','SANTA FE','PROVINCIAS UNIDAS'],['FÉLIX','EMIR','MENDOZA','UNIÓN POR LA PATRIA'],['FERNÁNDEZ','JORGE','BUENOS AIRES','LA LIBERTAD AVANZA'],['FERRARO','MAXIMILIANO','CIUDAD DE BUENOS AIRES','COALICION CIVICA'],['FERREYRA','ALEJANDRO','CÓRDOBA','LA LIBERTAD AVANZA'],['FIGUEROA','WALTER','NEUQUÉN','LA NEUQUINIDAD'],['FLORES','RAMIRO','CÓRDOBA','LA LIBERTAD AVANZA'],['GAILLARD','ANA','ENTRE RÍOS','UNIÓN POR LA PATRIA'],['GANDINI','JORGE','BUENOS AIRES','PRO'],['GARCÍA','PAULA','RÍO NEGRO','UNIÓN POR LA PATRIA'],['GIORDANO','MYRIAM','BUENOS AIRES','LA LIBERTAD AVANZA'],['GODOY','JUAN','MENDOZA','LA LIBERTAD AVANZA'],['GROSSO','LEONARDO','BUENOS AIRES','UNIÓN POR LA PATRIA'],['HERRERA','GLORIA','SANTIAGO DEL ESTERO','UNIÓN POR LA PATRIA'],['IGLESIAS','FERNANDO','BUENOS AIRES','PRO'],['JUÁREZ','GABRIELA','CATAMARCA','UNIÓN POR LA PATRIA'],['KOYRA','MARÍA','MISIONES','INNOVACIÓN FEDERAL'],['KUNKEL','CARLOS','BUENOS AIRES','UNIÓN POR LA PATRIA'],['LAGUINGE','ROBERTO','SAN JUAN','PRO'],['LAMBARE','JUAN','SANTIAGO DEL ESTERO','UNIÓN POR LA PATRIA'],['LEITO','PABLO','TUCUMÁN','LA LIBERTAD AVANZA'],['LEMOS','LORENA','MENDOZA','LA LIBERTAD AVANZA'],['LOSADA','MARTÍN','BUENOS AIRES','UCR - UNIÓN CÍVICA RADICAL'],['LUNA','FRANCISCO','CÓRDOBA','LA LIBERTAD AVANZA'],['MACEDO','LUIS','SANTA FE','PRO'],['MARCONI','LUIS','MENDOZA','PRO'],['MARTÍNEZ','GERMÁN','SANTA FE','UNIÓN POR LA PATRIA'],['MASSA','SERGIO','BUENOS AIRES','UNIÓN POR LA PATRIA'],['MENEM','MARTÍN','LA RIOJA','LA LIBERTAD AVANZA'],['MENNA','GUSTAVO','CHUBUT','UCR - UNIÓN CÍVICA RADICAL'],['MOISÉS','VERÓNICA','JUJUY','LA LIBERTAD AVANZA'],['MORALES','MARCELA','JUJUY','UCR - UNIÓN CÍVICA RADICAL'],['MOREAU','CECILIA','BUENOS AIRES','UNIÓN POR LA PATRIA'],['MORRA','EDUARDO','CÓRDOBA','LA LIBERTAD AVANZA'],['MOYANO','FACUNDO','BUENOS AIRES','UNIÓN POR LA PATRIA'],['MUSCARÁ','MARÍA','BUENOS AIRES','UNIÓN POR LA PATRIA'],['OLIVETO','PAULA','CIUDAD DE BUENOS AIRES','COALICION CIVICA'],['OLMEDO','ALFREDO','SALTA','PROVINCIAS UNIDAS'],['ORREGO','MARCELO','SAN JUAN','PROVINCIAS UNIDAS'],['PASINI','LUCIANA','BUENOS AIRES','LA LIBERTAD AVANZA'],['PERALES','MARCELA','LA PAMPA','UNIÓN POR LA PATRIA'],['PICHETTO','MIGUEL','BUENOS AIRES','ENCUENTRO FEDERAL'],['PIAGGIO','EMILIO','SANTA FE','LA LIBERTAD AVANZA'],['PIERI','MARCELA','CÓRDOBA','LA LIBERTAD AVANZA'],['PIROLA','SILVIA','BUENOS AIRES','PRO'],['QUETGLAS','FACUNDO','BUENOS AIRES','UCR - UNIÓN CÍVICA RADICAL'],['RAMÓN','JIMENA','MENDOZA','LA LIBERTAD AVANZA'],['REMO','MARCELO','CHACO','PROVINCIAS UNIDAS'],['REYES','JUAN','JUJUY','UNIÓN POR LA PATRIA'],['RIERA','MARGARITA','CHACO','LA LIBERTAD AVANZA'],['SALINAS','JOSÉ','BUENOS AIRES','UNIÓN POR LA PATRIA'],['SCHIAVONI','HUMBERTO','MISIONES','PRO'],['SCHIARETTI','MARIANA','CÓRDOBA','DEFENDAMOS CÓRDOBA'],['SCIOLI','DANIEL','BUENOS AIRES','UNIÓN POR LA PATRIA'],['STORNELLI','CARLOS','BUENOS AIRES','PRO'],['SUÁREZ','MARINA','MENDOZA','LA LIBERTAD AVANZA'],['TACACHO','MARIAM','JUJUY','PROVINCIAS UNIDAS'],['TETAZ','MARTÍN','BUENOS AIRES','UCR - UNIÓN CÍVICA RADICAL'],['TORRES','BLANCA','CHUBUT','PROVINCIAS UNIDAS'],['UCEDA','MARÍA','TUCUMÁN','UNIÓN POR LA PATRIA'],['VEGA','IGNACIO','CÓRDOBA','UCR - UNIÓN CÍVICA RADICAL'],['VILLALBA','RAMIRO','CHACO','UNIÓN POR LA PATRIA'],['VITELLESCHI','GABRIEL','SANTA FE','LA LIBERTAD AVANZA'],['YACOBITTI','EMILIANO','BUENOS AIRES','UCR - UNIÓN CÍVICA RADICAL'],['ZAGO','HÉCTOR','RÍO NEGRO','LA LIBERTAD AVANZA'],['ZÁRATE','MARCELO','BUENOS AIRES','LA LIBERTAD AVANZA'],['ZULIANI','GABRIELA','SANTA FE','LA LIBERTAD AVANZA'],
+];
+
+let todos=[
+  ...senadoresRaw.map(([ap,nom,prov,br])=>{const b=BLOQ_MAP[br]??'OTR';return{ap,nom,cam:'S',prov,bloqRaw:br,bloq:b,base:calcBase(b,prov),ajuste:0,senales:[]}}),
+  ...diputadosRaw.map(([ap,nom,prov,br])=>{const b=BLOQ_MAP[br]??'OTR';return{ap,nom,cam:'D',prov,bloqRaw:br,bloq:b,base:calcBase(b,prov),ajuste:0,senales:[]}}),
+];
+
+let senales=[];
+let pesos={historico:40,provincia:20,redes:10,noticias:15,oficial:10,encuesta:5};
+let filtrados=[...todos],pag=0,selLeg=null;
+const PG=25;
+
+function getProb(l){return Math.max(.05,Math.min(.97,l.base+l.ajuste));}
+function pos(p){return p>=.62?'SI':p<=.42?'NO':'INC';}
+function barColor(p){return p>=.62?'#639922':p<=.42?'#e24b4a':'#ef9f27';}
+
+function showTab(t){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  document.querySelectorAll('.tab').forEach(b=>{if(b.textContent.toLowerCase().includes(t.substring(0,4))||b.getAttribute('onclick')?.includes(t))b.classList.add('active');});
+}
+
+function poblarSelects(){
+  const opts=todos.map(l=>`<option value="${l.ap}|${l.cam}">${l.ap}, ${l.nom.split(' ')[0]} (${l.cam==='S'?'Sen':'Dip'} - ${l.prov.split(',')[0].substring(0,15)})</option>`).join('');
+  ['red-leg','not-leg','dec-leg','ai-leg','ai-leg-analizar'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+}
+
+function filtrar(){
+  const txt=document.getElementById('buscar').value.toLowerCase();
+  const cam=document.getElementById('filCam').value;
+  const bq=document.getElementById('filBloq').value;
+  const ps=document.getElementById('filPos').value;
+  const ord=document.getElementById('filOrden').value;
+  filtrados=todos.filter(l=>{
+    if(txt&&!l.ap.toLowerCase().includes(txt)&&!l.prov.toLowerCase().includes(txt)&&!l.nom.toLowerCase().includes(txt))return false;
+    if(cam&&l.cam!==cam)return false;
+    if(bq&&l.bloq!==bq)return false;
+    if(ps&&pos(getProb(l))!==ps)return false;
+    return true;
+  });
+  if(ord==='prob-desc')filtrados.sort((a,b)=>getProb(b)-getProb(a));
+  else if(ord==='prob-asc')filtrados.sort((a,b)=>getProb(a)-getProb(b));
+  else filtrados.sort((a,b)=>a.ap.localeCompare(b.ap));
+  pag=0;actualizarMetricas();renderTabla();
+}
+
+function actualizarMetricas(){
+  document.getElementById('tot-si').textContent=todos.filter(l=>pos(getProb(l))==='SI').length;
+  document.getElementById('tot-no').textContent=todos.filter(l=>pos(getProb(l))==='NO').length;
+  document.getElementById('tot-inc').textContent=todos.filter(l=>pos(getProb(l))==='INC').length;
+}
+
+function renderTabla(){
+  const tbody=document.getElementById('tbody');
+  const slice=filtrados.slice(pag*PG,(pag+1)*PG);
+  tbody.innerHTML=slice.map(l=>{
+    const p=getProb(l),pct=Math.round(p*100),po=pos(p),bc=barColor(p);
+    const bC=BLOQ_COLOR[l.bloq]??'#888';
+    const bClass=po==='SI'?'badge-si':po==='NO'?'badge-no':'badge-inc';
+    const bLbl=po==='SI'?'A favor':po==='NO'?'En contra':'Incierto';
+    const nSen=l.senales.length;
+    const isSel=selLeg&&selLeg.ap===l.ap&&selLeg.cam===l.cam;
+    return`<tr class="${isSel?'selected':''}" onclick="selectLeg('${l.ap}','${l.cam}')">
+      <td title="${l.ap}, ${l.nom}" style="font-weight:${isSel?'600':'400'}">${l.ap}, ${l.nom.split(' ')[0]}</td>
+      <td>${l.cam==='S'?'Senado':'Diputados'}</td>
+      <td title="${l.prov}">${l.prov.split(',')[0].substring(0,16)}</td>
+      <td><span class="dot" style="background:${bC}"></span>${(BLOQ_LABEL[l.bloq]??l.bloq).split(' ').slice(0,2).join(' ')}</td>
+      <td><div class="prob-bar-wrap"><div class="prob-bar"><div class="prob-bar-fill" style="width:${pct}%;background:${bc}"></div></div><span class="prob-val" style="color:${bc}">${pct}%</span></div></td>
+      <td style="color:${nSen>0?'#185fa5':'#b4b2a9'};font-size:11px;">${nSen>0?nSen+' señal'+(nSen>1?'es':''):'—'}</td>
+      <td><span class="badge ${bClass}">${bLbl}</span></td>
+      <td><button style="font-size:11px;padding:2px 8px;" onclick="event.stopPropagation();analizarLeg('${l.ap}','${l.cam}')">Analizar ↗</button></td>
+    </tr>`;
+  }).join('');
+  renderPag();
+}
+
+function selectLeg(ap,cam){selLeg=todos.find(l=>l.ap===ap&&l.cam===cam);renderTabla();}
+function renderPag(){
+  const total=Math.ceil(filtrados.length/PG);
+  let html=`<span>${filtrados.length} legisladores · Pág. ${pag+1}/${total}</span>`;
+  if(pag>0)html+=`<button onclick="irPag(${pag-1})">Anterior</button>`;
+  if(pag<total-1)html+=`<button onclick="irPag(${pag+1})">Siguiente</button>`;
+  document.getElementById('pag').innerHTML=html;
+}
+function irPag(n){pag=n;renderTabla();}
+
+let charSen=null,charDip=null;
+const bloqList=['LLA','UxP','PRO','UCR','PU','IF','OTR'];
+const bloqLabels=bloqList.map(b=>(BLOQ_LABEL[b]??b).split(' ').slice(0,2).join(' '));
+
+function renderCharts(){
+  function getData(cam){
+    return{
+      si:bloqList.map(b=>todos.filter(l=>l.cam===cam&&l.bloq===b&&pos(getProb(l))==='SI').length),
+      no:bloqList.map(b=>todos.filter(l=>l.cam===cam&&l.bloq===b&&pos(getProb(l))==='NO').length),
+      inc:bloqList.map(b=>todos.filter(l=>l.cam===cam&&l.bloq===b&&pos(getProb(l))==='INC').length),
+    };
+  }
+  function mkChart(id,cam,existing){
+    const d=getData(cam);
+    if(existing){existing.data.datasets[0].data=d.si;existing.data.datasets[1].data=d.no;existing.data.datasets[2].data=d.inc;existing.update();return existing;}
+    return new Chart(document.getElementById(id),{type:'bar',data:{labels:bloqLabels,datasets:[{label:'A favor',data:d.si,backgroundColor:'#639922'},{label:'En contra',data:d.no,backgroundColor:'#e24b4a'},{label:'Incierto',data:d.inc,backgroundColor:'#ef9f27'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10},maxRotation:30}},y:{stacked:true,ticks:{font:{size:10},stepSize:2},grid:{color:'rgba(0,0,0,0.05)'}}}}});
+  }
+  charSen=mkChart('cSen','S',charSen);
+  charDip=mkChart('cDip','D',charDip);
+}
+
+function actualizarPesos(){
+  const ids=['historico','provincia','redes','noticias','oficial','encuesta'];
+  ids.forEach(id=>{
+    const v=parseInt(document.getElementById('p-'+id).value);
+    pesos[id]=v;
+    document.getElementById('v-'+id).textContent=v+'%';
+  });
+  const total=ids.reduce((s,id)=>s+pesos[id],0);
+  document.getElementById('total-pesos').textContent=total+'%';
+}
+
+function resetPesos(){
+  const defaults={historico:40,provincia:20,redes:10,noticias:15,oficial:10,encuesta:5};
+  Object.entries(defaults).forEach(([k,v])=>{document.getElementById('p-'+k).value=v;pesos[k]=v;document.getElementById('v-'+k).textContent=v+'%';});
+  document.getElementById('total-pesos').textContent='100%';
+}
+
+function renderContribFuentes(){
+  const div=document.getElementById('contrib-fuentes');
+  const total=Object.values(pesos).reduce((a,b)=>a+b,0)||100;
+  const items=[
+    {label:'Alineamiento histórico',key:'historico',color:'#185fa5'},
+    {label:'Provincia / sector',key:'provincia',color:'#1d9e75'},
+    {label:'Redes sociales',key:'redes',color:'#7f77dd'},
+    {label:'Noticias',key:'noticias',color:'#1d9e75'},
+    {label:'Declaraciones oficiales',key:'oficial',color:'#378add'},
+    {label:'Encuestas',key:'encuesta',color:'#ef9f27'},
+  ];
+  div.innerHTML=items.map(it=>{
+    const pct=Math.round((pesos[it.key]/total)*100);
+    return`<div class="progress-bar-wrap">
+      <div class="progress-label"><span>${it.label}</span><span>${pct}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${it.color}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderSenalesResumen(){
+  const div=document.getElementById('senales-resumen');
+  if(senales.length===0){div.innerHTML='<p style="font-size:13px;color:#5f5e5a;">No hay señales manuales cargadas aún.</p>';return;}
+  div.innerHTML=senales.slice(-5).reverse().map(s=>{
+    const icon=s.tipo==='redes'?'bf-redes':s.tipo==='noticias'?'bf-noticias':s.tipo==='oficial'?'bf-oficial':'bf-encuesta';
+    const labels={redes:'Redes',noticias:'Noticia',oficial:'Declaración',encuesta:'Encuesta'};
+    return`<div class="signal-row">
+      <span class="badge-fuente ${icon}" style="margin-right:8px;">${labels[s.tipo]??s.tipo}</span>
+      <span class="signal-label">${s.legNombre??'General'} — ${s.texto.substring(0,60)}...</span>
+      <span class="signal-val ${s.signo>.0?'signal-pos':s.signo<0?'signal-neg':'signal-neu'}">${s.signo>0?'+':''+(s.signo*100).toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function agregarSenal(tipo){
+  const selMap={redes:'red-leg',noticias:'not-leg',oficial:'dec-leg'};
+  const txtMap={redes:'red-texto',noticias:'not-texto',oficial:'dec-texto',encuesta:'enc-texto'};
+  const legSel=selMap[tipo]?document.getElementById(selMap[tipo])?.value:null;
+  const texto=document.getElementById(txtMap[tipo])?.value?.trim();
+  if(!texto){alert('Ingresá el texto de la señal.');return;}
+
+  const signo=analizarSentimiento(texto);
+  const legObj=legSel?todos.find(l=>l.ap+'|'+l.cam===legSel):null;
+  const senal={id:Date.now(),tipo,texto,signo,legAp:legObj?.ap,legCam:legObj?.cam,legNombre:legObj?legObj.ap+' ('+( legObj.cam==='S'?'Sen':'Dip')+')':null};
+  senales.push(senal);
+
+  if(legObj){legObj.senales.push(senal);}
+  document.getElementById(txtMap[tipo]).value='';
+  renderListaSenales();
+  renderSenalesResumen();
+  document.getElementById('count-senales').textContent=senales.length+' señal'+(senales.length!==1?'es':'');
+}
+
+function analizarSentimiento(texto){
+  const pos=['apoya','favor','voto positivo','biocombustible','renovable','campo','agricultor','bioetanol','biodiesel','acompañar','positivo','sí','apoyo','flexfuel','energía nacional'];
+  const neg=['rechazo','contra','negativo','no voto','opone','perjudica','impugna','rechazamos','sin consenso','en contra'];
+  const t=texto.toLowerCase();
+  let score=0;
+  pos.forEach(p=>{if(t.includes(p))score+=0.08;});
+  neg.forEach(n=>{if(t.includes(n))score-=0.10;});
+  return Math.max(-.25,Math.min(.25,score));
+}
+
+function renderListaSenales(){
+  const div=document.getElementById('lista-senales');
+  if(senales.length===0){div.innerHTML='<p style="font-size:13px;color:#5f5e5a;">No hay señales cargadas todavía.</p>';return;}
+  const labels={redes:'Redes',noticias:'Noticia',oficial:'Declaración',encuesta:'Encuesta'};
+  const icons={redes:'bf-redes',noticias:'bf-noticias',oficial:'bf-oficial',encuesta:'bf-encuesta'};
+  div.innerHTML=`<div class="manual-list">`+senales.map(s=>`
+    <div class="manual-item">
+      <span class="badge-fuente ${icons[s.tipo]??'bf-manual'}">${labels[s.tipo]??s.tipo}</span>
+      <div class="manual-item-content">
+        <div>${s.legNombre??'General'} — ${s.texto.substring(0,80)}${s.texto.length>80?'...':''}</div>
+        <div class="manual-item-source">Señal: <strong style="color:${s.signo>0?'#27500a':s.signo<0?'#791f1f':'#633806'}">${s.signo>0?'Positiva':'Negativa o neutra'}</strong> (${s.signo>0?'+':''}${(s.signo*100).toFixed(0)}%)</div>
+      </div>
+      <button class="del-btn" onclick="eliminarSenal(${s.id})">Eliminar</button>
+    </div>`).join('')+'</div>';
+}
+
+function eliminarSenal(id){
+  const s=senales.find(x=>x.id===id);
+  if(s){const l=todos.find(x=>x.ap===s.legAp&&x.cam===s.legCam);if(l)l.senales=l.senales.filter(x=>x.id!==id);}
+  senales=senales.filter(x=>x.id!==id);
+  renderListaSenales();
+  renderSenalesResumen();
+  document.getElementById('count-senales').textContent=senales.length+' señal'+(senales.length!==1?'es':'');
+}
+
+function limpiarSenales(){
+  if(!confirm('¿Eliminar todas las señales?'))return;
+  senales=[];
+  todos.forEach(l=>l.senales=[]);
+  renderListaSenales();
+  renderSenalesResumen();
+  document.getElementById('count-senales').textContent='0 señales';
+}
+
+function recalcular(){
+  const total=Object.values(pesos).reduce((a,b)=>a+b,0)||100;
+  const wH=pesos.historico/total;
+  const wS=(pesos.redes+pesos.noticias+pesos.oficial+pesos.encuesta)/total;
+
+  todos.forEach(l=>{
+    const ajusteSenal=l.senales.reduce((s,x)=>s+x.signo,0);
+    l.ajuste=ajusteSenal*wS;
+  });
+
+  actualizarMetricas();
+  renderTabla();
+  renderCharts();
+  renderContribFuentes();
+  renderSenalesResumen();
+  alert('Probabilidades recalculadas con '+senales.length+' señal'+(senales.length!==1?'es':'')+' cargadas.');
+}
+
+function getApiKey(){return document.getElementById('apiKey').value.trim();}
+
+async function llamarIA(system,user,elId){
+  const apiKey=getApiKey();
+  if(!apiKey){document.getElementById(elId).textContent='Ingresá tu API Key de Anthropic para usar el análisis con IA.';return null;}
+  document.getElementById(elId).innerHTML='<span class="ai-loading">Analizando con IA...</span>';
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system,messages:[{role:'user',content:user}]})});
+    const data=await resp.json();
+    if(data.error){document.getElementById(elId).textContent='Error: '+data.error.message;return null;}
+    const txt=data.content?.find(b=>b.type==='text')?.text??'Sin respuesta.';
+    document.getElementById(elId).textContent=txt;
+    return txt;
+  }catch(e){document.getElementById(elId).textContent='Error de conexión. Verificá tu API Key.';return null;}
+}
+
+const CTX=`Sos un experto en el Congreso argentino y en el sector de biocombustibles. El proyecto S-3/26 modifica la Ley 27.640 de Biocombustibles: establece mezclas obligatorias crecientes (biodiesel hasta 15% en gasoil, bioetanol hasta 15% en nafta), licitaciones transparentes periódicas, vehículos flexfuel, y origen nacional por 18 años. Lo presentaron Carlos Espínola (Corrientes, PJ) y Alejandra Vigo (Córdoba, PJ) el 2/3/2026. Impacta en provincias agroindustriales: Córdoba (soja/biodiesel), Santa Fe (soja), Tucumán/Salta/Jujuy (caña/bioetanol), Corrientes (caña). Bloques más favorables: LLA y PRO. UCR dividida. PJ dividido (autores son PJ pero hay resistencia). Izquierda en contra. Respondé en español, máximo 200 palabras, con precisión y concisión.`;
+
+async function buscarWebIA(ap,cam){
+  const sel=ap?todos.find(l=>l.ap===ap&&l.cam===cam):null;
+  const legVal=document.getElementById('ai-leg').value;
+  const l=sel||(legVal?todos.find(x=>x.ap+'|'+x.cam===legVal):null);
+  if(!l){document.getElementById('ai-web-result').textContent='Seleccioná un legislador.';return;}
+  const camLabel=l.cam==='S'?'Senador':'Diputado';
+  await llamarIA(CTX,`Buscá y analizá el posicionamiento del ${camLabel} ${l.ap}, ${l.nom} (${l.prov}, ${BLOQ_LABEL[l.bloq]??l.bloq}) sobre biocombustibles, energía renovable o el proyecto S-3/26. Incluí: 1) Posición esperada y probabilidad estimada de voto a favor. 2) Declaraciones públicas conocidas o posición histórica. 3) Intereses de su provincia en el sector. 4) Factores que podrían moverlo/a a favor o en contra.`,'ai-web-result');
+}
+
+function analizarLeg(ap,cam){
+  showTab('analisis');
+  setTimeout(()=>buscarWebIA(ap,cam),100);
+}
+
+async function consultarLibre(){
+  const pregunta=document.getElementById('ai-pregunta').value.trim();
+  if(!pregunta)return;
+  await llamarIA(CTX,pregunta,'ai-libre-result');
+}
+
+async function analizarTexto(){
+  const texto=document.getElementById('ai-texto-analizar').value.trim();
+  if(!texto){document.getElementById('ai-texto-result').textContent='Pegá un texto para analizar.';return;}
+  const legVal=document.getElementById('ai-leg-analizar').value;
+  const l=legVal?todos.find(x=>x.ap+'|'+x.cam===legVal):null;
+  const legCtx=l?`El texto corresponde al ${l.cam==='S'?'Senador':'Diputado'} ${l.ap}, ${l.nom} (${l.prov}, ${BLOQ_LABEL[l.bloq]??l.bloq}).`:'No se especificó a qué legislador pertenece.';
+  await llamarIA(CTX,`${legCtx}\n\nAnalizá el siguiente texto y determiná:\n1) ¿Es una señal positiva o negativa respecto al proyecto S-3/26 de biocombustibles?\n2) ¿Qué tan fuerte es esa señal (fuerte/moderada/débil)?\n3) ¿Qué dice exactamente sobre la posición del legislador?\n4) ¿Deberías ajustar la probabilidad de voto a favor hacia arriba o abajo y en cuánto?\n\nTexto: "${texto}"`,'ai-texto-result');
+}
+
+async function analizarTodos(){
+  const inciertos=todos.filter(l=>pos(getProb(l))==='INC').sort((a,b)=>Math.abs(getProb(b)-.52)-Math.abs(getProb(a)-.52)).slice(0,10);
+  const lista=inciertos.map(l=>`- ${l.cam==='S'?'Sen':'Dip'} ${l.ap} (${l.prov}, ${BLOQ_LABEL[l.bloq]??l.bloq}): ${Math.round(getProb(l)*100)}%`).join('\n');
+  await llamarIA(CTX,`Estos son los 10 legisladores más inciertos del Congreso respecto al proyecto S-3/26:\n\n${lista}\n\nPara cada uno, indicá brevemente (1-2 líneas): cuál creés que es su posición más probable y qué factor sería determinante para definir su voto.`,'ai-web-result');
+  showTab('analisis');
+}
+
+async function buscarConIA(tipo){
+  const selMap={redes:'red-leg',noticias:'not-leg',oficial:'dec-leg'};
+  const legVal=selMap[tipo]?document.getElementById(selMap[tipo])?.value:null;
+  const l=legVal?todos.find(x=>x.ap+'|'+x.cam===legVal):null;
+  const camLabel=l?(l.cam==='S'?'Senador':'Diputado'):'legislador';
+  const nombre=l?`${l.ap}, ${l.nom} (${l.prov})`:'legislador seleccionado';
+  const tipoLabel={redes:'posts en redes sociales (Twitter/X, Instagram)',noticias:'notas periodísticas en medios argentinos',oficial:'declaraciones oficiales, versiones taquigráficas o discursos en comisión'};
+  const txtId={redes:'red-texto',noticias:'not-texto',oficial:'dec-texto',encuesta:'enc-texto'}[tipo];
+  const apiKey=getApiKey();
+  if(!apiKey){alert('Ingresá tu API Key de Anthropic.');return;}
+  document.getElementById(txtId).value='Buscando con IA...';
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:CTX,messages:[{role:'user',content:`Basándote en tu conocimiento, ¿qué ${tipoLabel[tipo]??'información'} existen sobre ${camLabel} ${nombre} relacionados con biocombustibles, energía o el proyecto S-3/26? Si no tenés información específica, describí qué se esperaría de un legislador con su perfil. Respondé con un resumen de 2-3 oraciones usable como señal.`}]})});
+    const data=await resp.json();
+    const txt=data.content?.find(b=>b.type==='text')?.text??'Sin datos encontrados.';
+    document.getElementById(txtId).value=txt;
+  }catch(e){document.getElementById(txtId).value='Error al buscar. Verificá tu API Key.';}
+}
+
+poblarSelects();
+actualizarMetricas();
+filtrar();
+renderCharts();
+renderContribFuentes();
+</script>
+</body>
+</html>
